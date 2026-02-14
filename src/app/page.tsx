@@ -1,0 +1,95 @@
+import { getOAuthClient, getBaseUrl } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+
+async function signIn() {
+  'use server'
+
+  const client = await getOAuthClient()
+  const handle = 'pds.certs.network'
+
+  const url = await client.authorize(handle, {
+    scope: 'atproto transition:generic',
+  })
+
+  redirect(url.toString())
+}
+
+export default async function Home() {
+  // Check if user is already logged in
+  const cookieStore = await cookies()
+  const userDid = cookieStore.get('user_did')?.value
+  const userHandle = cookieStore.get('user_handle')?.value
+
+  if (userDid) {
+    redirect('/welcome')
+  }
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      padding: '20px',
+    }}>
+      <div style={{
+        maxWidth: '440px',
+        width: '100%',
+        textAlign: 'center',
+      }}>
+        <div style={{ marginBottom: '48px' }}>
+          <h1 style={{
+            fontSize: '42px',
+            fontWeight: 300,
+            letterSpacing: '-0.5px',
+            margin: '0 0 12px 0',
+            color: '#2d2d2d',
+          }}>
+            Ma Earth
+          </h1>
+          <p style={{
+            fontSize: '17px',
+            color: '#6b6b6b',
+            lineHeight: 1.6,
+            margin: 0,
+          }}>
+            Nourishing people and planet
+          </p>
+        </div>
+
+        <form action={signIn}>
+          <button
+            type="submit"
+            style={{
+              width: '100%',
+              padding: '14px 28px',
+              fontSize: '16px',
+              fontWeight: 500,
+              color: '#faf9f6',
+              background: '#4a6741',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              letterSpacing: '0.3px',
+              transition: 'background 0.2s',
+            }}
+          >
+            Sign in
+          </button>
+        </form>
+
+        <p style={{
+          marginTop: '32px',
+          fontSize: '13px',
+          color: '#999',
+          lineHeight: 1.5,
+        }}>
+          Sign in with your Certified identity.
+          <br />
+          Powered by the AT Protocol.
+        </p>
+      </div>
+    </div>
+  )
+}

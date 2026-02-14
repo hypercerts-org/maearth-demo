@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin: 0; padding: 0; background: #faf9f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #faf9f6;">
+    <tr>
+      <td align="center" style="padding: 48px 20px;">
+        <table role="presentation" width="420" cellpadding="0" cellspacing="0" style="max-width: 420px; width: 100%;">
+          <!-- Logo / Brand -->
+          <tr>
+            <td style="padding-bottom: 32px;">
+              <span style="font-size: 24px; font-weight: 300; color: #2d2d2d; letter-spacing: -0.3px;">Ma Earth</span>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td>
+              {{#is_new_user}}
+              <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 500; color: #2d2d2d;">Welcome to {{app_name}}</h1>
+              <p style="margin: 0 0 28px 0; font-size: 15px; color: #6b6b6b; line-height: 1.5;">
+                Enter this code to verify your email and create your account.
+              </p>
+              {{/is_new_user}}
+              {{^is_new_user}}
+              <h1 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 500; color: #2d2d2d;">Sign in to {{app_name}}</h1>
+              <p style="margin: 0 0 28px 0; font-size: 15px; color: #6b6b6b; line-height: 1.5;">
+                Enter this code to sign in to your account.
+              </p>
+              {{/is_new_user}}
+            </td>
+          </tr>
+
+          <!-- OTP Code -->
+          <tr>
+            <td align="center" style="padding: 0 0 28px 0;">
+              <div style="display: inline-block; font-size: 36px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-weight: 600; letter-spacing: 8px; color: #2d2d2d; background: #ffffff; padding: 16px 32px; border-radius: 10px; border: 1px solid #e8e5e0;">
+                {{code}}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Expiry note -->
+          <tr>
+            <td>
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: #999; line-height: 1.5;">
+                This code expires in 10 minutes.
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #999; line-height: 1.5;">
+                If you didn't request this, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding: 32px 0;">
+              <div style="border-top: 1px solid #e8e5e0;"></div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td>
+              <p style="margin: 0; font-size: 12px; color: #bbb;">
+                {{app_name}} &mdash; Nourishing people and planet
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
