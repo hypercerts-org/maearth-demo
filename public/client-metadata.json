@@ -2,13 +2,22 @@
   "client_id": "https://maearth-demo.vercel.app/client-metadata.json",
   "client_name": "Ma Earth",
   "client_uri": "https://maearth-demo.vercel.app",
-  "logo_uri": "https://maearth-demo.vercel.app/logo.png",
-  "redirect_uris": ["https://maearth-demo.vercel.app/api/oauth/callback"],
+  "logo_uri": "https://maearth-demo.vercel.app/logo.svg",
+  "redirect_uris": [
+    "https://maearth-demo.vercel.app/api/oauth/callback"
+  ],
   "scope": "atproto transition:generic",
-  "grant_types": ["authorization_code", "refresh_token"],
-  "response_types": ["code"],
+  "grant_types": [
+    "authorization_code",
+    "refresh_token"
+  ],
+  "response_types": [
+    "code"
+  ],
   "token_endpoint_auth_method": "none",
   "dpop_bound_access_tokens": true,
   "email_template_uri": "https://maearth-demo.vercel.app/email-template.html",
-  "email_subject_template": "{{code}} — Your {{app_name}} code"
+  "email_subject_template": "{{code}} \u2014 Your {{app_name}} code",
+  "brand_color": "#4a6741",
+  "background_color": "#faf9f6"
 }
