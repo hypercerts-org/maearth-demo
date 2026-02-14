@@ -19,20 +19,25 @@ export function generateState(): string {
 
 
 
-// DPoP key pair (generated once per process)
-let dpopKeyPair: { publicKey: crypto.KeyObject; privateKey: crypto.KeyObject; jwk: object } | null = null
-
-export async function getDpopKeyPair() {
-  if (dpopKeyPair) return dpopKeyPair
-
+// Generate a fresh DPoP key pair (call per OAuth flow, not cached)
+export function generateDpopKeyPair() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', {
     namedCurve: 'P-256',
   })
 
-  const jwk = publicKey.export({ format: 'jwk' })
+  const publicJwk = publicKey.export({ format: 'jwk' })
+  const privateJwk = privateKey.export({ format: 'jwk' })
 
-  dpopKeyPair = { publicKey, privateKey, jwk }
-  return dpopKeyPair
+  return { publicKey, privateKey, publicJwk, privateJwk }
+}
+
+// Restore a DPoP key pair from a serialized private JWK
+export function restoreDpopKeyPair(privateJwk: crypto.JsonWebKey) {
+  const privateKey = crypto.createPrivateKey({ key: privateJwk, format: 'jwk' })
+  const publicKey = crypto.createPublicKey(privateKey)
+  const publicJwk = publicKey.export({ format: 'jwk' })
+
+  return { publicKey, privateKey, publicJwk, privateJwk }
 }
 
 export function createDpopProof(opts: {

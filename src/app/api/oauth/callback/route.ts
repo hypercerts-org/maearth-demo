@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import * as crypto from 'crypto'
 import {
-  getBaseUrl, getDpopKeyPair, createDpopProof,
+  getBaseUrl, restoreDpopKeyPair, createDpopProof,
   TOKEN_ENDPOINT, PDS_URL,
 } from '@/lib/auth'
 import { cookies } from 'next/headers'
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     if (!stateCookie) {
       return NextResponse.redirect(new URL('/?error=invalid_state_no_cookie', baseUrl))
     }
-    let stateData: { state: string; codeVerifier: string }
+    let stateData: { state: string; codeVerifier: string; dpopPrivateJwk: Record<string, unknown> }
     try {
       stateData = JSON.parse(stateCookie.value)
     } catch {
@@ -45,7 +46,10 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/oauth/callback`
 
     // Exchange code for tokens with DPoP
-    const { privateKey, jwk } = await getDpopKeyPair()
+    if (!stateData.dpopPrivateJwk) {
+      return NextResponse.redirect(new URL('/?error=missing_dpop_key', baseUrl))
+    }
+    const { privateKey, publicJwk } = restoreDpopKeyPair(stateData.dpopPrivateJwk as crypto.JsonWebKey)
 
     const tokenBody = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     // First attempt
     let dpopProof = createDpopProof({
-      privateKey, jwk,
+      privateKey, jwk: publicJwk,
       method: 'POST',
       url: TOKEN_ENDPOINT,
     })
@@ -77,7 +81,7 @@ export async function GET(request: NextRequest) {
       if (dpopNonce) {
         console.log('[oauth/callback] Retrying token exchange with DPoP nonce...')
         dpopProof = createDpopProof({
-          privateKey, jwk,
+          privateKey, jwk: publicJwk,
           method: 'POST',
           url: TOKEN_ENDPOINT,
           nonce: dpopNonce,

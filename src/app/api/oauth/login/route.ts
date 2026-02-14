@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import {
   getBaseUrl, generateCodeVerifier, generateCodeChallenge,
-  generateState, getDpopKeyPair, createDpopProof,
+  generateState, generateDpopKeyPair, createDpopProof,
   PAR_ENDPOINT, AUTH_ENDPOINT,
 } from '@/lib/auth'
 
@@ -21,9 +21,9 @@ export async function GET(request: Request) {
     const state = generateState()
 
     // Generate DPoP proof for PAR
-    const { privateKey, jwk } = await getDpopKeyPair()
+    const { privateKey, publicJwk, privateJwk } = generateDpopKeyPair()
     const dpopProof = createDpopProof({
-      privateKey, jwk,
+      privateKey, jwk: publicJwk,
       method: 'POST',
       url: PAR_ENDPOINT,
     })
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
       if (dpopNonce && parRes.status === 400) {
         console.log('[oauth/login] Retrying with DPoP nonce...')
         const dpopProof2 = createDpopProof({
-          privateKey, jwk,
+          privateKey, jwk: publicJwk,
           method: 'POST',
           url: PAR_ENDPOINT,
           nonce: dpopNonce,
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
         const authUrl = `${AUTH_ENDPOINT}?client_id=${encodeURIComponent(clientId)}&request_uri=${encodeURIComponent(parData2.request_uri)}${loginHint}`
         console.log('[oauth/login] Redirecting to auth (after nonce retry)')
         const resp2 = NextResponse.redirect(authUrl)
-        resp2.cookies.set('oauth_state', JSON.stringify({ state, codeVerifier }), { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600, path: '/' })
+        resp2.cookies.set('oauth_state', JSON.stringify({ state, codeVerifier, dpopPrivateJwk: privateJwk }), { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600, path: '/' })
         return resp2
       }
 
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
 
     console.log('[oauth/login] Redirecting to auth:', authUrl.substring(0, 200))
     const response = NextResponse.redirect(authUrl)
-    response.cookies.set('oauth_state', JSON.stringify({ state, codeVerifier }), { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600, path: '/' })
+    response.cookies.set('oauth_state', JSON.stringify({ state, codeVerifier, dpopPrivateJwk: privateJwk }), { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600, path: '/' })
     return response
   } catch (err) {
     console.error('[oauth/login] Error:', err)
