@@ -74,11 +74,11 @@ export default async function Welcome() {
           </div>
         </div>
 
-        <form action={signOut} style={{ display: "flex", justifyContent: "center" }}>
+        <form action={signOut} style={{ textAlign: 'center' }}>
           <button
             type="submit"
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               padding: '14px 28px',
