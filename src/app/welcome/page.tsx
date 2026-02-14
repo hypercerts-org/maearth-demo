@@ -74,7 +74,7 @@ export default async function Welcome() {
           </div>
         </div>
 
-        <form action={signOut}>
+        <form action={signOut} style={{ display: "flex", justifyContent: "center" }}>
           <button
             type="submit"
             style={{

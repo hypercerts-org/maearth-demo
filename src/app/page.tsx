@@ -5,7 +5,7 @@ export default function Home() {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      padding: '20px',
+      padding: '20px', paddingBottom: '15vh',
       background: '#F2EBE4',
     }}>
       <div style={{
