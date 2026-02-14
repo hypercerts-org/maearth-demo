@@ -1,25 +1,9 @@
-import { getOAuthClient, getBaseUrl } from '@/lib/auth'
-import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-
-async function signIn() {
-  'use server'
-
-  const client = await getOAuthClient()
-  const handle = 'pds.certs.network'
-
-  const url = await client.authorize(handle, {
-    scope: 'atproto transition:generic',
-  })
-
-  redirect(url.toString())
-}
+import { redirect } from 'next/navigation'
 
 export default async function Home() {
-  // Check if user is already logged in
   const cookieStore = await cookies()
   const userDid = cookieStore.get('user_did')?.value
-  const userHandle = cookieStore.get('user_handle')?.value
 
   if (userDid) {
     redirect('/welcome')
@@ -58,26 +42,26 @@ export default async function Home() {
           </p>
         </div>
 
-        <form action={signIn}>
-          <button
-            type="submit"
-            style={{
-              width: '100%',
-              padding: '14px 28px',
-              fontSize: '16px',
-              fontWeight: 500,
-              color: '#faf9f6',
-              background: '#4a6741',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              letterSpacing: '0.3px',
-              transition: 'background 0.2s',
-            }}
-          >
-            Sign in
-          </button>
-        </form>
+        <a
+          href="/api/oauth/login"
+          style={{
+            display: 'block',
+            width: '100%',
+            padding: '14px 28px',
+            fontSize: '16px',
+            fontWeight: 500,
+            color: '#faf9f6',
+            background: '#4a6741',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            letterSpacing: '0.3px',
+            textDecoration: 'none',
+            boxSizing: 'border-box',
+          }}
+        >
+          Sign in
+        </a>
 
         <p style={{
           marginTop: '32px',
