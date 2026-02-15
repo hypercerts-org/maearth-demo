@@ -30,11 +30,12 @@ export async function GET(request: Request) {
   const baseUrl = getBaseUrl();
 
   try {
-    // Rate limit by IP
+    // Rate limit by IP (x-real-ip is set by Vercel and cannot be spoofed)
     const ip =
+      request.headers.get("x-real-ip") ||
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown";
-    const rl = checkRateLimit(
+    const rl = await checkRateLimit(
       `login:${ip}`,
       RATE_LIMIT_LOGIN,
       RATE_LIMIT_WINDOW_MS,

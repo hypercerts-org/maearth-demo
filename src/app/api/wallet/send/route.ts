@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSessionFromCookie } from "@/lib/session";
-import { checkRateLimit } from "@/lib/ratelimit";
+import { checkRateLimit, getDailyTotal, addDailyTotal } from "@/lib/ratelimit";
 import { validateCsrfToken } from "@/lib/csrf";
+import { logTransaction } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -11,29 +12,6 @@ const RATE_LIMIT_TX = Number(process.env.RATE_LIMIT_TRANSACTION) || 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_TX_AMOUNT = Number(process.env.MAX_TRANSACTION_AMOUNT) || 0.1;
 const MAX_DAILY_AMOUNT = Number(process.env.MAX_DAILY_AMOUNT) || 1.0;
-
-// Daily spending tracker per DID
-const dailyTotals = new Map<string, { total: number; date: string }>();
-
-function getTodayStr(): string {
-  return new Date().toISOString().split("T")[0]!;
-}
-
-function getDailyTotal(did: string): number {
-  const entry = dailyTotals.get(did);
-  if (!entry || entry.date !== getTodayStr()) return 0;
-  return entry.total;
-}
-
-function addDailyTotal(did: string, amount: number): void {
-  const today = getTodayStr();
-  const entry = dailyTotals.get(did);
-  if (!entry || entry.date !== today) {
-    dailyTotals.set(did, { total: amount, date: today });
-  } else {
-    entry.total += amount;
-  }
-}
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
@@ -50,7 +28,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Rate limit per user
-  const rl = checkRateLimit(
+  const rl = await checkRateLimit(
     `tx:${session.userDid}`,
     RATE_LIMIT_TX,
     RATE_LIMIT_WINDOW_MS,
@@ -105,13 +83,18 @@ export async function POST(request: NextRequest) {
   }
 
   // Daily limit
-  const dailyTotal = getDailyTotal(session.userDid);
+  const dailyTotal = await getDailyTotal(session.userDid);
   if (dailyTotal + amountNum > MAX_DAILY_AMOUNT) {
     return NextResponse.json(
       { error: `Exceeds daily limit of ${MAX_DAILY_AMOUNT} ETH` },
       { status: 400 },
     );
   }
+
+  const ip =
+    request.headers.get("x-real-ip") ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
 
   const res = await fetch(`${walletUrl}/wallet/send`, {
     method: "POST",
@@ -125,11 +108,29 @@ export async function POST(request: NextRequest) {
   const data = await res.json();
 
   if (!res.ok) {
+    await logTransaction({
+      did: session.userDid,
+      to,
+      amount: amountNum,
+      status: "failed",
+      error: data.error || `HTTP ${res.status}`,
+      ip,
+    });
     return NextResponse.json(data, { status: res.status });
   }
 
   // Track daily spending after successful transaction
-  addDailyTotal(session.userDid, amountNum);
+  await addDailyTotal(session.userDid, amountNum);
+
+  await logTransaction({
+    did: session.userDid,
+    to,
+    amount: amountNum,
+    status: "success",
+    txHash: data.txHash,
+    userOpHash: data.userOpHash,
+    ip,
+  });
 
   return NextResponse.json(data);
 }

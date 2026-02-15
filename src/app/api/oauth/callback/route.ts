@@ -4,6 +4,7 @@ import {
   getBaseUrl,
   restoreDpopKeyPair,
   createDpopProof,
+  resolveDidToPds,
   TOKEN_ENDPOINT,
   PLC_DIRECTORY_URL,
 } from "@/lib/auth";
@@ -136,6 +137,27 @@ export async function GET(request: NextRequest) {
       if (tokenOrigin !== expectedOrigin) {
         console.error(
           "[oauth/callback] Issuer mismatch: token endpoint does not match expected PDS",
+        );
+        return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
+      }
+    }
+
+    // For email login: verify the returned DID's PDS matches our token endpoint
+    // This prevents a compromised PDS from claiming arbitrary DIDs
+    if (!stateData.expectedDid && tokenData.sub) {
+      try {
+        const didPdsUrl = await resolveDidToPds(tokenData.sub);
+        const didPdsOrigin = new URL(didPdsUrl).origin;
+        const tokenOrigin = new URL(tokenUrl).origin;
+        if (didPdsOrigin !== tokenOrigin) {
+          console.error(
+            "[oauth/callback] Email flow: DID PDS mismatch - DID document points to different PDS",
+          );
+          return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
+        }
+      } catch {
+        console.error(
+          "[oauth/callback] Email flow: Could not verify DID PDS ownership",
         );
         return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
       }

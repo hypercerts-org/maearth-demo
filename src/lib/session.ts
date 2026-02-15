@@ -1,7 +1,16 @@
 import * as crypto from "crypto";
 
-const SESSION_SECRET =
-  process.env.SESSION_SECRET || "dev-session-secret-change-in-production";
+const DEV_SECRET = "dev-session-secret-change-in-production";
+
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET || DEV_SECRET;
+  if (process.env.NODE_ENV === "production" && secret === DEV_SECRET) {
+    throw new Error(
+      "SESSION_SECRET must be set in production. Generate one with: openssl rand -base64 32",
+    );
+  }
+  return secret;
+}
 
 // --- Types ---
 
@@ -25,7 +34,7 @@ export interface UserSession {
 
 function signPayload(payload: string): string {
   const hmac = crypto
-    .createHmac("sha256", SESSION_SECRET)
+    .createHmac("sha256", getSessionSecret())
     .update(payload)
     .digest("base64url");
   return `${payload}.${hmac}`;
@@ -37,7 +46,7 @@ function verifyPayload(signed: string): string | null {
   const payload = signed.substring(0, dotIndex);
   const providedHmac = signed.substring(dotIndex + 1);
   const expectedHmac = crypto
-    .createHmac("sha256", SESSION_SECRET)
+    .createHmac("sha256", getSessionSecret())
     .update(payload)
     .digest("base64url");
   const a = Buffer.from(providedHmac);
