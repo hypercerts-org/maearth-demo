@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Wallet service not configured' }, { status: 503 })
   }
 
-  let body: { to?: string }
+  let body: { to?: string; amount?: string }
   try {
     body = await request.json()
   } catch {
@@ -31,13 +31,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid Ethereum address' }, { status: 400 })
   }
 
+  const amount = (body.amount || '0').trim()
+  if (isNaN(Number(amount)) || Number(amount) < 0) {
+    return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
+  }
+
   const res = await fetch(`${walletUrl}/wallet/send`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-API-Key': apiKey,
     },
-    body: JSON.stringify({ did, to }),
+    body: JSON.stringify({ did, to, amount }),
   })
 
   const data = await res.json()

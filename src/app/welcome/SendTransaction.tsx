@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 export function SendTransaction({ smartAccountAddress }: { smartAccountAddress: string | null }) {
   const [to, setTo] = useState('')
+  const [amount, setAmount] = useState('')
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
   const [result, setResult] = useState<{ txHash: string; userOpHash: string } | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -11,9 +12,16 @@ export function SendTransaction({ smartAccountAddress }: { smartAccountAddress: 
   if (!smartAccountAddress) return null
 
   const handleSend = async () => {
-    const trimmed = to.trim()
-    if (!/^0x[0-9a-fA-F]{40}$/.test(trimmed)) {
+    const trimmedTo = to.trim()
+    if (!/^0x[0-9a-fA-F]{40}$/.test(trimmedTo)) {
       setErrorMsg('Please enter a valid Ethereum address (0x...)')
+      setStatus('error')
+      return
+    }
+
+    const ethAmount = amount.trim() || '0'
+    if (isNaN(Number(ethAmount)) || Number(ethAmount) < 0) {
+      setErrorMsg('Please enter a valid amount')
       setStatus('error')
       return
     }
@@ -26,7 +34,7 @@ export function SendTransaction({ smartAccountAddress }: { smartAccountAddress: 
       const res = await fetch('/api/wallet/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: trimmed }),
+        body: JSON.stringify({ to: trimmedTo, amount: ethAmount }),
       })
 
       const data = await res.json()
@@ -59,6 +67,19 @@ export function SendTransaction({ smartAccountAddress }: { smartAccountAddress: 
     wordBreak: 'break-all',
   }
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '12px 14px',
+    fontSize: '14px',
+    fontFamily: "'SF Mono', Menlo, Consolas, monospace",
+    border: '1px solid #d4d0cb',
+    borderRadius: '8px',
+    outline: 'none',
+    boxSizing: 'border-box',
+    background: status === 'sending' ? '#f5f5f5' : '#fff',
+    color: '#1A130F',
+  }
+
   return (
     <div style={{
       background: '#fff',
@@ -68,9 +89,9 @@ export function SendTransaction({ smartAccountAddress }: { smartAccountAddress: 
       boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       marginBottom: '32px',
     }}>
-      <div style={labelStyle}>Send Test Transaction (0 ETH)</div>
+      <div style={labelStyle}>Send Test Transaction</div>
       <p style={{ fontSize: '13px', color: '#6b6b6b', margin: '4px 0 16px 0' }}>
-        Send a gasless 0 ETH transaction from your smart account.
+        Send a gasless ETH transaction on Sepolia Testnet from your smart account.
       </p>
 
       <div style={{ marginBottom: '12px' }}>
@@ -80,18 +101,18 @@ export function SendTransaction({ smartAccountAddress }: { smartAccountAddress: 
           value={to}
           onChange={(e) => { setTo(e.target.value); if (status === 'error') setStatus('idle') }}
           disabled={status === 'sending'}
-          style={{
-            width: '100%',
-            padding: '12px 14px',
-            fontSize: '14px',
-            fontFamily: "'SF Mono', Menlo, Consolas, monospace",
-            border: '1px solid #d4d0cb',
-            borderRadius: '8px',
-            outline: 'none',
-            boxSizing: 'border-box',
-            background: status === 'sending' ? '#f5f5f5' : '#fff',
-            color: '#1A130F',
-          }}
+          style={inputStyle}
+        />
+      </div>
+
+      <div style={{ marginBottom: '12px' }}>
+        <input
+          type="text"
+          placeholder="Amount in ETH (e.g. 0.001)"
+          value={amount}
+          onChange={(e) => { setAmount(e.target.value); if (status === 'error') setStatus('idle') }}
+          disabled={status === 'sending'}
+          style={inputStyle}
         />
       </div>
 
