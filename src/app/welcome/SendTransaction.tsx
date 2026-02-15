@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export function SendTransaction({
   smartAccountAddress,
@@ -19,6 +19,26 @@ export function SendTransaction({
     userOpHash: string;
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [balance, setBalance] = useState<string | null>(null);
+
+  const fetchBalance = useCallback(async () => {
+    if (!smartAccountAddress) return;
+    try {
+      const res = await fetch(
+        `/api/wallet/balance?address=${smartAccountAddress}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setBalance(data.balance);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [smartAccountAddress]);
+
+  useEffect(() => {
+    fetchBalance();
+  }, [fetchBalance]);
 
   if (!smartAccountAddress) return null;
 
@@ -66,6 +86,7 @@ export function SendTransaction({
 
       setResult(data);
       setStatus("success");
+      fetchBalance();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Transaction failed");
       setStatus("error");
@@ -137,6 +158,30 @@ export function SendTransaction({
         Send a gasless ETH transaction on Sepolia Testnet from your smart
         account.
       </p>
+
+      <div
+        style={{
+          background: "#f8f7f5",
+          borderRadius: "8px",
+          padding: "12px 16px",
+          marginBottom: "16px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div style={labelStyle}>Balance</div>
+        <div
+          style={{
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "#1A130F",
+            fontFamily: "'SF Mono', Menlo, Consolas, monospace",
+          }}
+        >
+          {balance !== null ? `${parseFloat(balance).toFixed(6)} ETH` : "..."}
+        </div>
+      </div>
 
       <div style={{ marginBottom: "12px" }}>
         <input
