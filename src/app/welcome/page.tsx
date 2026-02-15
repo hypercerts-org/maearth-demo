@@ -1,5 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { WalletCard } from './WalletCard'
+import { SendTransaction } from './SendTransaction'
 
 async function signOut() {
   'use server'
@@ -10,6 +12,22 @@ async function signOut() {
   redirect('/')
 }
 
+async function fetchWallet(did: string) {
+  const walletUrl = process.env.WALLET_SERVICE_URL
+  const apiKey = process.env.WALLET_API_KEY
+  if (!walletUrl || !apiKey) return null
+  try {
+    const res = await fetch(`${walletUrl}/wallet/${encodeURIComponent(did)}`, {
+      headers: { 'X-API-Key': apiKey },
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
 export default async function Welcome() {
   const cookieStore = await cookies()
   const userDid = cookieStore.get('user_did')?.value
@@ -18,6 +36,8 @@ export default async function Welcome() {
   if (!userDid) {
     redirect('/')
   }
+
+  const walletData = await fetchWallet(userDid)
 
   return (
     <div style={{
@@ -73,6 +93,10 @@ export default async function Welcome() {
             </div>
           </div>
         </div>
+
+        <WalletCard initial={walletData} />
+
+        <SendTransaction smartAccountAddress={walletData?.smartAccountAddress ?? null} />
 
         <form action={signOut} style={{ textAlign: 'center' }}>
           <button
