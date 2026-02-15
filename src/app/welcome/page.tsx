@@ -2,21 +2,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { WalletCard } from "./WalletCard";
 import { SendTransaction } from "./SendTransaction";
-import {
-  getSessionFromCookie,
-  deleteUserSession,
-  SESSION_COOKIE,
-} from "@/lib/session";
+import { getSessionFromCookie, SESSION_COOKIE } from "@/lib/session";
 import { generateCsrfToken } from "@/lib/csrf";
 
 async function signOut() {
   "use server";
 
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE);
-  if (sessionCookie) {
-    deleteUserSession(sessionCookie.value);
-  }
   cookieStore.delete(SESSION_COOKIE);
   redirect("/");
 }

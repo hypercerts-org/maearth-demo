@@ -1,116 +1,120 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect } from "vitest";
 import {
-  createOAuthSession, getOAuthSession, deleteOAuthSession,
-  createUserSession, getUserSession, deleteUserSession,
-  verifySignedId, getSessionFromCookie,
-} from '../session'
-import type { OAuthSession, UserSession } from '../session'
+  createOAuthSessionCookie,
+  getOAuthSessionFromCookie,
+  createUserSessionCookie,
+  getUserSessionFromCookie,
+  getSessionFromCookie,
+  verifySignedId,
+} from "../session";
+import type { OAuthSession, UserSession } from "../session";
 
 const sampleOAuthSession: OAuthSession = {
-  state: 'test-state',
-  codeVerifier: 'test-verifier',
-  dpopPrivateJwk: { kty: 'EC', crv: 'P-256', x: 'x', y: 'y', d: 'd' },
-  tokenEndpoint: 'https://pds.example.com/oauth/token',
-  email: 'test@example.com',
-  expectedDid: 'did:plc:test123',
-  expectedPdsUrl: 'https://pds.example.com',
-}
+  state: "test-state",
+  codeVerifier: "test-verifier",
+  dpopPrivateJwk: { kty: "EC", crv: "P-256", x: "x", y: "y", d: "d" },
+  tokenEndpoint: "https://pds.example.com/oauth/token",
+  email: "test@example.com",
+  expectedDid: "did:plc:test123",
+  expectedPdsUrl: "https://pds.example.com",
+};
 
 const sampleUserSession: UserSession = {
-  userDid: 'did:plc:test123',
-  userHandle: 'test.example.com',
+  userDid: "did:plc:test123",
+  userHandle: "test.example.com",
   createdAt: Date.now(),
+};
+
+function mockCookieStore(cookies: Record<string, string>) {
+  return {
+    get: (name: string) =>
+      cookies[name] ? { value: cookies[name] } : undefined,
+  };
 }
 
-describe('session signing', () => {
-  it('creates signed session IDs', () => {
-    const signed = createOAuthSession(sampleOAuthSession)
-    expect(signed).toContain('.')
-    const parts = signed.split('.')
-    expect(parts.length).toBe(2)
-  })
+describe("signed cookie payloads", () => {
+  it("creates signed OAuth cookie values", () => {
+    const cookie = createOAuthSessionCookie(sampleOAuthSession);
+    expect(cookie.name).toBe("oauth_state");
+    expect(cookie.value).toContain(".");
+  });
 
-  it('verifies valid signed IDs', () => {
-    const signed = createOAuthSession(sampleOAuthSession)
-    const sessionId = verifySignedId(signed)
-    expect(sessionId).not.toBeNull()
-    expect(sessionId!.length).toBeGreaterThan(0)
-  })
+  it("creates signed user session cookie values", () => {
+    const cookie = createUserSessionCookie(sampleUserSession);
+    expect(cookie.name).toBe("session_id");
+    expect(cookie.value).toContain(".");
+  });
 
-  it('rejects tampered signed IDs', () => {
-    const signed = createOAuthSession(sampleOAuthSession)
-    const tampered = signed.replace(/.$/, signed.endsWith('a') ? 'b' : 'a')
-    expect(verifySignedId(tampered)).toBeNull()
-  })
+  it("rejects tampered values", () => {
+    const cookie = createUserSessionCookie(sampleUserSession);
+    const tampered =
+      cookie.value.slice(0, -1) + (cookie.value.endsWith("a") ? "b" : "a");
+    const store = mockCookieStore({ session_id: tampered });
+    expect(getUserSessionFromCookie(store)).toBeNull();
+  });
 
-  it('rejects unsigned values', () => {
-    expect(verifySignedId('no-dot-here')).toBeNull()
-  })
-})
+  it("rejects malformed values", () => {
+    expect(verifySignedId("no-dot-here")).toBeNull();
+    expect(verifySignedId("")).toBeNull();
+  });
+});
 
-describe('OAuth sessions', () => {
-  it('creates and retrieves OAuth sessions', () => {
-    const signed = createOAuthSession(sampleOAuthSession)
-    const retrieved = getOAuthSession(signed)
-    expect(retrieved).not.toBeNull()
-    expect(retrieved!.state).toBe('test-state')
-    expect(retrieved!.expectedDid).toBe('did:plc:test123')
-  })
+describe("OAuth session cookies", () => {
+  it("roundtrips OAuth session data", () => {
+    const cookie = createOAuthSessionCookie(sampleOAuthSession);
+    const store = mockCookieStore({ [cookie.name]: cookie.value });
+    const retrieved = getOAuthSessionFromCookie(store);
+    expect(retrieved).not.toBeNull();
+    expect(retrieved!.state).toBe("test-state");
+    expect(retrieved!.codeVerifier).toBe("test-verifier");
+    expect(retrieved!.expectedDid).toBe("did:plc:test123");
+    expect(retrieved!.email).toBe("test@example.com");
+  });
 
-  it('returns null for deleted sessions', () => {
-    const signed = createOAuthSession(sampleOAuthSession)
-    deleteOAuthSession(signed)
-    expect(getOAuthSession(signed)).toBeNull()
-  })
+  it("returns null when no cookie", () => {
+    const store = mockCookieStore({});
+    expect(getOAuthSessionFromCookie(store)).toBeNull();
+  });
 
-  it('returns null for non-existent sessions', () => {
-    expect(getOAuthSession('fake.signature')).toBeNull()
-  })
-})
+  it("returns null for invalid cookie", () => {
+    const store = mockCookieStore({ oauth_state: "bad.signature" });
+    expect(getOAuthSessionFromCookie(store)).toBeNull();
+  });
+});
 
-describe('user sessions', () => {
-  it('creates and retrieves user sessions', () => {
-    const signed = createUserSession(sampleUserSession)
-    const retrieved = getUserSession(signed)
-    expect(retrieved).not.toBeNull()
-    expect(retrieved!.userDid).toBe('did:plc:test123')
-    expect(retrieved!.userHandle).toBe('test.example.com')
-  })
+describe("user session cookies", () => {
+  it("roundtrips user session data", () => {
+    const cookie = createUserSessionCookie(sampleUserSession);
+    const store = mockCookieStore({ [cookie.name]: cookie.value });
+    const retrieved = getUserSessionFromCookie(store);
+    expect(retrieved).not.toBeNull();
+    expect(retrieved!.userDid).toBe("did:plc:test123");
+    expect(retrieved!.userHandle).toBe("test.example.com");
+  });
 
-  it('returns null for deleted sessions', () => {
-    const signed = createUserSession(sampleUserSession)
-    deleteUserSession(signed)
-    expect(getUserSession(signed)).toBeNull()
-  })
+  it("returns null when no cookie", () => {
+    const store = mockCookieStore({});
+    expect(getUserSessionFromCookie(store)).toBeNull();
+  });
 
-  it('does not cross session types', () => {
-    const oauthSigned = createOAuthSession(sampleOAuthSession)
-    const userSigned = createUserSession(sampleUserSession)
-    // OAuth signed ID should not return a user session
-    expect(getUserSession(oauthSigned)).toBeNull()
-    // User signed ID should not return an OAuth session
-    expect(getOAuthSession(userSigned)).toBeNull()
-  })
-})
+  it("returns null for invalid cookie", () => {
+    const store = mockCookieStore({ session_id: "bad.signature" });
+    expect(getUserSessionFromCookie(store)).toBeNull();
+  });
+});
 
-describe('getSessionFromCookie', () => {
-  it('returns session when valid cookie exists', async () => {
-    const signed = createUserSession(sampleUserSession)
-    const mockCookieStore = { get: (name: string) => name === 'session_id' ? { value: signed } : undefined }
-    const session = await getSessionFromCookie(mockCookieStore)
-    expect(session).not.toBeNull()
-    expect(session!.userDid).toBe('did:plc:test123')
-  })
+describe("getSessionFromCookie", () => {
+  it("returns session when valid cookie exists", async () => {
+    const cookie = createUserSessionCookie(sampleUserSession);
+    const store = mockCookieStore({ [cookie.name]: cookie.value });
+    const session = await getSessionFromCookie(store);
+    expect(session).not.toBeNull();
+    expect(session!.userDid).toBe("did:plc:test123");
+  });
 
-  it('returns null when no cookie', async () => {
-    const mockCookieStore = { get: () => undefined }
-    const session = await getSessionFromCookie(mockCookieStore)
-    expect(session).toBeNull()
-  })
-
-  it('returns null when cookie has invalid value', async () => {
-    const mockCookieStore = { get: () => ({ value: 'bad.signature' }) }
-    const session = await getSessionFromCookie(mockCookieStore)
-    expect(session).toBeNull()
-  })
-})
+  it("returns null when no cookie", async () => {
+    const store = mockCookieStore({});
+    const session = await getSessionFromCookie(store);
+    expect(session).toBeNull();
+  });
+});

@@ -21,122 +21,91 @@ export interface UserSession {
   createdAt: number;
 }
 
-type SessionData =
-  | { type: "oauth"; data: OAuthSession; expiresAt: number }
-  | { type: "user"; data: UserSession; expiresAt: number };
+// --- HMAC Signing (sign arbitrary JSON payloads into cookie values) ---
 
-// --- Store ---
-
-const sessions = new Map<string, SessionData>();
-
-const OAUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes
-const USER_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
-
-// Periodic cleanup of expired sessions
-let cleanupTimer: ReturnType<typeof setInterval> | null = null;
-
-function ensureCleanup() {
-  if (cleanupTimer) return;
-  cleanupTimer = setInterval(() => {
-    const now = Date.now();
-    for (const [id, session] of sessions) {
-      if (session.expiresAt <= now) sessions.delete(id);
-    }
-  }, CLEANUP_INTERVAL_MS);
-  // Don't prevent Node.js from exiting
-  if (cleanupTimer.unref) cleanupTimer.unref();
-}
-
-// --- HMAC Signing ---
-
-function sign(sessionId: string): string {
+function signPayload(payload: string): string {
   const hmac = crypto
     .createHmac("sha256", SESSION_SECRET)
-    .update(sessionId)
+    .update(payload)
     .digest("base64url");
-  return `${sessionId}.${hmac}`;
+  return `${payload}.${hmac}`;
 }
 
-export function verifySignedId(signed: string): string | null {
+function verifyPayload(signed: string): string | null {
   const dotIndex = signed.lastIndexOf(".");
   if (dotIndex === -1) return null;
-  const sessionId = signed.substring(0, dotIndex);
+  const payload = signed.substring(0, dotIndex);
   const providedHmac = signed.substring(dotIndex + 1);
   const expectedHmac = crypto
     .createHmac("sha256", SESSION_SECRET)
-    .update(sessionId)
+    .update(payload)
     .digest("base64url");
   const a = Buffer.from(providedHmac);
   const b = Buffer.from(expectedHmac);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  return sessionId;
+  return payload;
 }
 
-// --- OAuth Sessions ---
+// --- OAuth Sessions (stored in cookie as signed JSON) ---
 
-export function createOAuthSession(data: OAuthSession): string {
-  ensureCleanup();
-  const sessionId = crypto.randomBytes(32).toString("base64url");
-  sessions.set(sessionId, {
-    type: "oauth",
-    data,
-    expiresAt: Date.now() + OAUTH_TTL_MS,
-  });
-  return sign(sessionId);
+const OAUTH_COOKIE = "oauth_state";
+
+export function createOAuthSessionCookie(data: OAuthSession): {
+  name: string;
+  value: string;
+} {
+  const json = Buffer.from(JSON.stringify(data)).toString("base64url");
+  return { name: OAUTH_COOKIE, value: signPayload(json) };
 }
 
-export function getOAuthSession(signedId: string): OAuthSession | null {
-  const sessionId = verifySignedId(signedId);
-  if (!sessionId) return null;
-  const entry = sessions.get(sessionId);
-  if (!entry || entry.type !== "oauth" || entry.expiresAt <= Date.now())
+export function getOAuthSessionFromCookie(cookieStore: {
+  get(name: string): { value: string } | undefined;
+}): OAuthSession | null {
+  const cookie = cookieStore.get(OAUTH_COOKIE);
+  if (!cookie) return null;
+  const json = verifyPayload(cookie.value);
+  if (!json) return null;
+  try {
+    return JSON.parse(Buffer.from(json, "base64url").toString());
+  } catch {
     return null;
-  return entry.data;
+  }
 }
 
-export function deleteOAuthSession(signedId: string): void {
-  const sessionId = verifySignedId(signedId);
-  if (sessionId) sessions.delete(sessionId);
-}
-
-// --- User Sessions ---
-
-export function createUserSession(data: UserSession): string {
-  ensureCleanup();
-  const sessionId = crypto.randomBytes(32).toString("base64url");
-  sessions.set(sessionId, {
-    type: "user",
-    data,
-    expiresAt: Date.now() + USER_TTL_MS,
-  });
-  return sign(sessionId);
-}
-
-export function getUserSession(signedId: string): UserSession | null {
-  const sessionId = verifySignedId(signedId);
-  if (!sessionId) return null;
-  const entry = sessions.get(sessionId);
-  if (!entry || entry.type !== "user" || entry.expiresAt <= Date.now())
-    return null;
-  return entry.data;
-}
-
-export function deleteUserSession(signedId: string): void {
-  const sessionId = verifySignedId(signedId);
-  if (sessionId) sessions.delete(sessionId);
-}
-
-// --- Cookie Helper ---
+// --- User Sessions (stored in cookie as signed JSON) ---
 
 const SESSION_COOKIE = "session_id";
 
+export function createUserSessionCookie(data: UserSession): {
+  name: string;
+  value: string;
+} {
+  const json = Buffer.from(JSON.stringify(data)).toString("base64url");
+  return { name: SESSION_COOKIE, value: signPayload(json) };
+}
+
+export function getUserSessionFromCookie(cookieStore: {
+  get(name: string): { value: string } | undefined;
+}): UserSession | null {
+  const cookie = cookieStore.get(SESSION_COOKIE);
+  if (!cookie) return null;
+  const json = verifyPayload(cookie.value);
+  if (!json) return null;
+  try {
+    return JSON.parse(Buffer.from(json, "base64url").toString());
+  } catch {
+    return null;
+  }
+}
+
+// Backward-compatible alias
 export async function getSessionFromCookie(cookieStore: {
   get(name: string): { value: string } | undefined;
 }): Promise<UserSession | null> {
-  const cookie = cookieStore.get(SESSION_COOKIE);
-  if (!cookie) return null;
-  return getUserSession(cookie.value);
+  return getUserSessionFromCookie(cookieStore);
 }
 
-export { SESSION_COOKIE };
+export { SESSION_COOKIE, OAUTH_COOKIE };
+
+// Exported for tests
+export { verifyPayload as verifySignedId };

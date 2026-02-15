@@ -13,7 +13,7 @@ import {
   resolveDidToPds,
   discoverOAuthEndpoints,
 } from "@/lib/auth";
-import { createOAuthSession, SESSION_COOKIE } from "@/lib/session";
+import { createOAuthSessionCookie, OAUTH_COOKIE } from "@/lib/session";
 import {
   validateEmail,
   validateHandle,
@@ -124,7 +124,7 @@ export async function GET(request: Request) {
       body: parBody.toString(),
     });
 
-    // Store session data server-side (not in cookie)
+    // Session data to store in signed cookie
     const sessionData = {
       state,
       codeVerifier,
@@ -134,9 +134,9 @@ export async function GET(request: Request) {
       expectedDid,
       expectedPdsUrl,
     };
+    const oauthCookie = createOAuthSessionCookie(sessionData);
 
     if (!parRes.ok) {
-      const errText = await parRes.text();
       console.error("[oauth/login] PAR failed:", parRes.status);
 
       // Check for DPoP nonce requirement
@@ -171,9 +171,8 @@ export async function GET(request: Request) {
           : "";
         const authUrl = `${authEndpoint}?client_id=${encodeURIComponent(clientId)}&request_uri=${encodeURIComponent(parData2.request_uri)}${loginHint}`;
         console.log("[oauth/login] Redirecting to auth (after nonce retry)");
-        const signedSessionId = createOAuthSession(sessionData);
         const resp2 = NextResponse.redirect(authUrl);
-        resp2.cookies.set(SESSION_COOKIE, signedSessionId, {
+        resp2.cookies.set(oauthCookie.name, oauthCookie.value, {
           httpOnly: true,
           secure: true,
           sameSite: "lax",
@@ -193,9 +192,8 @@ export async function GET(request: Request) {
     const authUrl = `${authEndpoint}?client_id=${encodeURIComponent(clientId)}&request_uri=${encodeURIComponent(parData.request_uri)}${loginHintParam}`;
 
     console.log("[oauth/login] Redirecting to auth");
-    const signedSessionId = createOAuthSession(sessionData);
     const response = NextResponse.redirect(authUrl);
-    response.cookies.set(SESSION_COOKIE, signedSessionId, {
+    response.cookies.set(oauthCookie.name, oauthCookie.value, {
       httpOnly: true,
       secure: true,
       sameSite: "lax",

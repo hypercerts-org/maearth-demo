@@ -9,10 +9,10 @@ import {
 } from "@/lib/auth";
 import { cookies } from "next/headers";
 import {
-  getOAuthSession,
-  deleteOAuthSession,
-  createUserSession,
+  getOAuthSessionFromCookie,
+  createUserSessionCookie,
   SESSION_COOKIE,
+  OAUTH_COOKIE,
 } from "@/lib/session";
 import { sanitizeForLog } from "@/lib/validation";
 
@@ -35,14 +35,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
     }
 
-    // Retrieve OAuth session from server-side store
+    // Retrieve OAuth session from signed cookie
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get(SESSION_COOKIE);
-    if (!sessionCookie) {
-      return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
-    }
-
-    const stateData = getOAuthSession(sessionCookie.value);
+    const stateData = getOAuthSessionFromCookie(cookieStore);
     if (!stateData) {
       return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
     }
@@ -50,9 +45,6 @@ export async function GET(request: NextRequest) {
     if (stateData.state !== state) {
       return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
     }
-
-    // Delete OAuth session immediately (prevents replay)
-    deleteOAuthSession(sessionCookie.value);
 
     const codeVerifier = stateData.codeVerifier;
     const tokenUrl = stateData.tokenEndpoint || TOKEN_ENDPOINT;
@@ -171,14 +163,16 @@ export async function GET(request: NextRequest) {
       console.warn("[oauth/callback] Could not resolve handle from PLC");
     }
 
-    // Create server-side user session with signed cookie
-    const signedSessionId = createUserSession({
+    // Create signed user session cookie
+    const userCookie = createUserSessionCookie({
       userDid: tokenData.sub,
       userHandle: handle,
       createdAt: Date.now(),
     });
 
-    cookieStore.set(SESSION_COOKIE, signedSessionId, {
+    // Delete OAuth cookie, set user session cookie
+    cookieStore.delete(OAUTH_COOKIE);
+    cookieStore.set(userCookie.name, userCookie.value, {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
