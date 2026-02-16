@@ -112,7 +112,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (!tokenRes.ok) {
-      console.error("[oauth/callback] Token exchange failed:", tokenRes.status);
+      const errBody = await tokenRes.text().catch(() => "");
+      console.error(
+        "[oauth/callback] Token exchange failed:",
+        tokenRes.status,
+        errBody,
+      );
       return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
     }
 
@@ -122,6 +127,11 @@ export async function GET(request: NextRequest) {
       sub: string;
       scope?: string;
     };
+
+    console.log(
+      "[oauth/callback] Token exchange successful, sub:",
+      tokenData.sub,
+    );
 
     // Validate sub matches expected DID (blocks malicious PDS impersonation)
     if (stateData.expectedDid && tokenData.sub !== stateData.expectedDid) {
@@ -137,7 +147,10 @@ export async function GET(request: NextRequest) {
       const expectedOrigin = new URL(stateData.expectedPdsUrl).origin;
       if (tokenOrigin !== expectedOrigin) {
         console.error(
-          "[oauth/callback] Issuer mismatch: token endpoint does not match expected PDS",
+          "[oauth/callback] Issuer mismatch: token endpoint",
+          tokenOrigin,
+          "vs expected",
+          expectedOrigin,
         );
         return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
       }
@@ -152,13 +165,17 @@ export async function GET(request: NextRequest) {
         const tokenOrigin = new URL(tokenUrl).origin;
         if (didPdsOrigin !== tokenOrigin) {
           console.error(
-            "[oauth/callback] Email flow: DID PDS mismatch - DID document points to different PDS",
+            "[oauth/callback] Email flow: DID PDS mismatch -",
+            didPdsOrigin,
+            "vs",
+            tokenOrigin,
           );
           return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
         }
-      } catch {
+      } catch (err) {
         console.error(
-          "[oauth/callback] Email flow: Could not verify DID PDS ownership",
+          "[oauth/callback] Email flow: Could not verify DID PDS ownership:",
+          err instanceof Error ? err.message : err,
         );
         return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
       }
