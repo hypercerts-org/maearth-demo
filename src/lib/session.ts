@@ -28,6 +28,7 @@ export interface UserSession {
   userDid: string;
   userHandle: string;
   createdAt: number;
+  verified?: boolean;
 }
 
 // --- HMAC Signing (sign arbitrary JSON payloads into cookie values) ---

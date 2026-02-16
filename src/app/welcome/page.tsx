@@ -37,6 +37,11 @@ export default async function Welcome() {
     redirect("/");
   }
 
+  // 2FA pending — must verify first
+  if (session.verified === false) {
+    redirect("/verify-2fa");
+  }
+
   const walletData = await fetchWallet(session.userDid);
   const csrfToken = generateCsrfToken();
 
@@ -134,9 +139,15 @@ export default async function Welcome() {
           csrfToken={csrfToken}
         />
 
-        <form action={signOut} style={{ textAlign: "center" }}>
-          <button
-            type="submit"
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            justifyContent: "center",
+          }}
+        >
+          <a
+            href="/welcome/settings"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -144,17 +155,39 @@ export default async function Welcome() {
               padding: "14px 28px",
               fontSize: "16px",
               fontWeight: 500,
-              color: "#faf9f6",
-              background: "#1A130F",
-              border: "none",
+              color: "#1A130F",
+              background: "transparent",
+              border: "1px solid #d4d0cb",
               borderRadius: "8px",
               cursor: "pointer",
               letterSpacing: "0.3px",
+              textDecoration: "none",
             }}
           >
-            Sign out
-          </button>
-        </form>
+            Settings
+          </a>
+          <form action={signOut}>
+            <button
+              type="submit"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "14px 28px",
+                fontSize: "16px",
+                fontWeight: 500,
+                color: "#faf9f6",
+                background: "#1A130F",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                letterSpacing: "0.3px",
+              }}
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ import {
   OAUTH_COOKIE,
 } from "@/lib/session";
 import { sanitizeForLog } from "@/lib/validation";
+import { hasTwoFactorEnabled } from "@/lib/twofa";
 
 export const runtime = "nodejs";
 
@@ -185,11 +186,15 @@ export async function GET(request: NextRequest) {
       console.warn("[oauth/callback] Could not resolve handle from PLC");
     }
 
+    // Check if user has 2FA enabled
+    const has2fa = await hasTwoFactorEnabled(tokenData.sub);
+
     // Create signed user session cookie
     const userCookie = createUserSessionCookie({
       userDid: tokenData.sub,
       userHandle: handle,
       createdAt: Date.now(),
+      verified: !has2fa, // false if 2FA required, true otherwise
     });
 
     // Delete OAuth cookie, set user session cookie
@@ -218,7 +223,9 @@ export async function GET(request: NextRequest) {
       }).catch(() => console.warn("[oauth/callback] Wallet provision failed"));
     }
 
-    return NextResponse.redirect(new URL("/welcome", baseUrl));
+    // Redirect to 2FA verification or welcome
+    const redirectPath = has2fa ? "/verify-2fa" : "/welcome";
+    return NextResponse.redirect(new URL(redirectPath, baseUrl));
   } catch (err) {
     console.error(
       "[oauth/callback] Error:",
