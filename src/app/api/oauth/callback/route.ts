@@ -91,7 +91,6 @@ export async function GET(request: NextRequest) {
     if (!tokenRes.ok) {
       const dpopNonce = tokenRes.headers.get("dpop-nonce");
       if (dpopNonce) {
-        console.log("[oauth/callback] Retrying token exchange with DPoP nonce");
         dpopProof = createDpopProof({
           privateKey,
           jwk: publicJwk,
@@ -114,9 +113,7 @@ export async function GET(request: NextRequest) {
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text().catch(() => "");
       console.error(
-        "[oauth/callback] Token exchange failed:",
-        tokenRes.status,
-        errBody,
+        `[oauth/callback] FAILED status=${tokenRes.status} url=${tokenUrl} body=${errBody}`,
       );
       return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
     }
