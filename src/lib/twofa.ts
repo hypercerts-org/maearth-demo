@@ -119,6 +119,7 @@ const PENDING_KEY = (did: string) => `twofa:pending:${did}`;
 export async function getTwoFactorConfig(
   did: string,
 ): Promise<TwoFactorConfig | null> {
+  if (!redis) return null;
   const r = requireRedis();
   const data = await r.get<string>(CONFIG_KEY(did));
   if (!data) return null;
