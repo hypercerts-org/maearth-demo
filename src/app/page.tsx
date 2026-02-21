@@ -153,6 +153,19 @@ function LoginForm() {
         >
           {mode === 'email' ? 'Sign in with ATProto/Bluesky' : 'Sign in with Certified'}
         </p>
+
+        <a
+          href="/flow2"
+          style={{
+            display: 'inline-block',
+            marginTop: '8px',
+            color: '#bbb',
+            fontSize: '12px',
+            textDecoration: 'none',
+          }}
+        >
+          Test Flow 2 (no email form)
+        </a>
       </div>
     </div>
   )

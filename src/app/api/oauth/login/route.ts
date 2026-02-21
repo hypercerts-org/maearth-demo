@@ -54,9 +54,8 @@ export async function GET(request: Request) {
       .trim();
 
     // Input validation
-    if (!email && !handle) {
-      return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
-    }
+    // Note: email and handle are both optional — omitting both triggers Flow 2
+    // (auth server collects the email itself via its own form).
     if (email && !validateEmail(email)) {
       return NextResponse.redirect(new URL("/?error=auth_failed", baseUrl));
     }
